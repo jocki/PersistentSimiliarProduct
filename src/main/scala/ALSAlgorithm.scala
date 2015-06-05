@@ -163,14 +163,13 @@ class ALSAlgorithm(val ap: ALSAlgorithmParams)
       logger.info(s"No productFeatures vector for query items ${query.items}.")
       Array[(Int, Double)]()
     } else {
-      productFeatures.par // convert to parallel collection
+      productFeatures
         .mapValues { f =>
           queryFeatures.map{ qf =>
             cosine(qf, f)
           }.reduce(_ + _)
         }
         .filter(_._2 > 0) // keep items with score > 0
-        .seq // convert back to sequential collection
         .toArray
     }
 
