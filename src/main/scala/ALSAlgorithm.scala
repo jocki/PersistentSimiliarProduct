@@ -120,19 +120,68 @@ class ALSAlgorithm(val ap: ALSAlgorithmParams)
       items = items
     )
 
+    /*
+     *  PREDICT ALL TO JSON FILES
+     */
+
     // Generates prediction results into json files
     val jsonOutputPath = "output"
     new File(jsonOutputPath).mkdirs()
     sc.parallelize(itemStringIntMap.toSeq, 4).foreach { x =>
+
       val itemId = x._1
-      val query = new Query(List(itemId), 10, None, None, None)
-      val predictedResult = predict(alsModel, query)
-      if (!predictedResult.itemScores.isEmpty) {
-        val itemsStr = predictedResult.itemScores.map(i => '"' + i.item + '"').mkString(",")
-        val jsonString = "{\"algo\": \"similiar-product\", \"items\": [" + itemsStr + "]}\n"
-        Files.write(Paths.get(jsonOutputPath, itemId + ".json"), jsonString.getBytes(StandardCharsets.UTF_8),
-          StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.CREATE)
+      val itemNumericId = x._2
+      val queryList = Set(itemNumericId)
+      val queryFeatures: Vector[Array[Double]] = queryList.toVector
+        // productFeatures may not contain the requested item
+        .map { item => alsModel.productFeatures.get(item) }
+        .flatten
+      val ord = Ordering.by[(Int, Double), Double](_._2).reverse
+
+      val indexScores: Array[(Int, Double)] = if (queryFeatures.isEmpty) {
+        logger.info(s"No productFeatures vector for query items ${itemId}.")
+        Array[(Int, Double)]()
+      } else {
+        alsModel.productFeatures.par // convert to parallel collection
+          .mapValues { f =>
+            queryFeatures.map{ qf =>
+              cosine(qf, f)
+            }.reduce(_ + _)
+          }
+          .filter(_._2 > 0) // keep items with score > 0
+          .seq // convert back to sequential collection
+          .toArray
       }
+
+      val filteredScore = indexScores.view.filter { case (i, v) =>
+        isCandidateItem(
+          i = i,
+          items = alsModel.items,
+          categories = None,
+          queryList = queryList,
+          whiteList = None,
+          blackList = None
+        )
+      }
+
+      val topScores = getTopN(filteredScore, 10)(ord).toArray
+
+      val itemScores = topScores.map { case (i, s) =>
+        new ItemScore(
+          item = alsModel.itemIntStringMap(i),
+          score = s
+        )
+      }
+
+      val jsonString: String = if (itemScores.isEmpty) {
+        "{\"algo\": \"similiar-product\", \"items\": []}\n"
+      } else {
+        val itemsStr = itemScores.map(i => '"' + i.item + '"').mkString(",")
+        "{\"algo\": \"similiar-product\", \"items\": [" + itemsStr + "]}\n"
+      }
+      Files.write(Paths.get(jsonOutputPath, itemId + ".json"), jsonString.getBytes(StandardCharsets.UTF_8),
+        StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.CREATE)
+
     }
 
     alsModel
