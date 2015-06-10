@@ -169,14 +169,12 @@ class ALSAlgorithm(val ap: ALSAlgorithmParams)
         )
       }
 
-      val jsonString: String = if (itemScores.isEmpty) {
-        "{\"algo\": \"similiar-product\", \"items\": []}\n"
-      } else {
+      if (!itemScores.isEmpty) {
         val itemsStr = itemScores.map(i => '"' + i.item + '"').mkString(",")
-        "{\"algo\": \"similiar-product\", \"items\": [" + itemsStr + "]}\n"
+        val jsonString = "{\"algo\": \"similiar-product\", \"items\": [" + itemsStr + "]}\n"
+        Files.write(Paths.get(jsonOutputPath, itemId + ".json"), jsonString.getBytes(StandardCharsets.UTF_8),
+          StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.CREATE)
       }
-      Files.write(Paths.get(jsonOutputPath, itemId + ".json"), jsonString.getBytes(StandardCharsets.UTF_8),
-        StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.CREATE)
 
     }
 
