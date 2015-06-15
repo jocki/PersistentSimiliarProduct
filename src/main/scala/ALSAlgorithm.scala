@@ -26,8 +26,7 @@ case class ALSAlgorithmParams(
 
 class ALSModel(
   val productFeatures: Map[Int, Array[Double]],
-  val itemStringIntMap: BiMap[String, Int],
-  val items: Map[Int, Item]
+  val itemStringIntMap: BiMap[String, Int]
 ) extends Serializable {
 
   @transient lazy val itemIntStringMap = itemStringIntMap.inverse
@@ -36,9 +35,7 @@ class ALSModel(
     s" productFeatures: [${productFeatures.size}]" +
     s"(${productFeatures.take(2).toList}...)" +
     s" itemStringIntMap: [${itemStringIntMap.size}]" +
-    s"(${itemStringIntMap.take(2).toString}...)]" +
-    s" items: [${items.size}]" +
-    s"(${items.take(2).toString}...)]"
+    s"(${itemStringIntMap.take(2).toString}...)]"
   }
 }
 
@@ -58,12 +55,6 @@ class ALSAlgorithm(val ap: ALSAlgorithmParams)
     // create User and item's String ID to integer index BiMap
     val userStringIntMap = BiMap.stringInt(data.viewEvents.map(_.user))
     val itemStringIntMap = BiMap.stringInt(data.viewEvents.map(_.item))
-
-    // collect Item as Map and convert ID to Int index
-    val items: Map[Int, Item] = data.items.map { case (id, item) =>
-      (itemStringIntMap(id), item)
-    }.collectAsMap.toMap
-
     val mllibRatings = data.viewEvents
       .map { r =>
         // Convert user and item String IDs to Int index for MLlib
@@ -108,8 +99,7 @@ class ALSAlgorithm(val ap: ALSAlgorithmParams)
 
     val alsModel = new ALSModel(
       productFeatures = m.productFeatures.collectAsMap.toMap,
-      itemStringIntMap = itemStringIntMap,
-      items = items
+      itemStringIntMap = itemStringIntMap
     )
 
     /*
@@ -148,8 +138,6 @@ class ALSAlgorithm(val ap: ALSAlgorithmParams)
       val filteredScore = indexScores.view.filter { case (i, v) =>
         isCandidateItem(
           i = i,
-          items = alsModel.items,
-          categories = None,
           queryList = queryList,
           whiteList = None,
           blackList = None
@@ -217,8 +205,6 @@ class ALSAlgorithm(val ap: ALSAlgorithmParams)
     val filteredScore = indexScores.view.filter { case (i, v) =>
       isCandidateItem(
         i = i,
-        items = model.items,
-        categories = query.categories,
         queryList = queryList,
         whiteList = whiteList,
         blackList = blackList
@@ -277,23 +263,13 @@ class ALSAlgorithm(val ap: ALSAlgorithmParams)
   private
   def isCandidateItem(
     i: Int,
-    items: Map[Int, Item],
-    categories: Option[Set[String]],
     queryList: Set[Int],
     whiteList: Option[Set[Int]],
     blackList: Option[Set[Int]]
   ): Boolean = {
     whiteList.map(_.contains(i)).getOrElse(true) &&
     blackList.map(!_.contains(i)).getOrElse(true) &&
-    // discard items in query as well
-    (!queryList.contains(i)) &&
-    // filter categories
-    categories.map { cat =>
-      items(i).categories.map { itemCat =>
-        // keep this item if has ovelap categories with the query
-        !(itemCat.toSet.intersect(cat).isEmpty)
-      }.getOrElse(false) // discard this item if it has no categories
-    }.getOrElse(true)
+    (!queryList.contains(i))
   }
 
 }
