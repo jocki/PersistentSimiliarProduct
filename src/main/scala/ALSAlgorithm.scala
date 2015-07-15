@@ -54,7 +54,8 @@ class ALSAlgorithm(val ap: ALSAlgorithmParams)
       " and Preprator generates PreparedData correctly.")
     // create User and item's String ID to integer index BiMap
     val userStringIntMap = BiMap.stringInt(data.viewEvents.map(_.user))
-    val itemStringIntMap = BiMap.stringInt(data.viewEvents.map(_.item))
+    // Translate into unique items
+    val itemStringIntMap = BiMap.stringInt(data.viewEvents.map(_.item).distinct())
     val mllibRatings = data.viewEvents
       .map { r =>
         // Convert user and item String IDs to Int index for MLlib
