@@ -6,5 +6,11 @@ pipeline {
         echo 'Halooo'
       }
     }
+    stage('') {
+      steps {
+        cleanWs()
+        input(message: 'Do you want to deploy to live?', id: 'deploy')
+      }
+    }
   }
 }
