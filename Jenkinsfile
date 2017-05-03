@@ -6,9 +6,8 @@ pipeline {
         echo 'Halooo'
       }
     }
-    stage('') {
+    stage('error') {
       steps {
-        cleanWs()
         input(message: 'Do you want to deploy to live?', id: 'deploy')
       }
     }
